@@ -1,14 +1,31 @@
-# BSD / SAM Notes -- QGroundControl Customization
+# BSD Notes -- QGroundControl Customization
 
-Working notes on customizing QGC for SAM survey/BVLOS ops -- custom UI, DRONETAG
-Firelight traffic overlay, mission-planner dispatch tie-in. Not for upstream --
-BSD-internal only. Updated 2026-08-20.
+Working notes on customizing QGC for Big Sky Dynamics (BSD) aircraft, the
+projects in the private `REVOLVER` repo. First target is the ArduPilot
+helicopter UAS (`REVOLVER/heli/`). Also covers custom UI, the DRONETAG
+Firelight traffic overlay, and a mission-planner dispatch tie-in. BSD work,
+not SAM work, and not for upstream. Updated 2026-09-26.
+
+## Helicopter setup screens
+
+QGC already ships an ArduPilot helicopter setup page (swashplate type, rotor
+speed control / governor). Start from it rather than building heli screens
+from scratch:
+
+- `src/AutoPilotPlugins/APM/APMHeliComponent.qml` -- the page itself.
+- `src/AutoPilotPlugins/APM/APMHeliComponent.cc/.h` -- registers the page.
+- `docs/en/qgc-user-guide/setup_view/ardupilot/vehicle_specific.md` -- the
+  user-guide text for it.
+
+Parameter meanings come from the ArduPilot mirror in `REVOLVER/heli/ArduPilot/`
+(`params/<version>/Parameters-Heli.md`), not from memory.
 
 ## Repo setup
 
 - Forked from `mavlink/qgroundcontrol` to `jkornoff/qgroundcontrol`.
-- `origin` = fork, `upstream` = `mavlink/qgroundcontrol`. Pull `upstream/master`
-  and merge to keep current; customizations should stay additive (new files,
+- `origin` = fork, `upstream` = `mavlink/qgroundcontrol`. To keep current,
+  fetch `upstream` and rebase the BSD commits onto `upstream/master` (no merge
+  commits), then `git push --force-with-lease origin master`; customizations should stay additive (new files,
   isolated overrides) to keep merges painless.
 - No git submodules in current QGC -- deps are CMake FetchContent/vcpkg.
 - `just configure` / `just build` / `just check` -- see `AGENTS.md` for full
@@ -202,7 +219,7 @@ or a satellite link.
   how much work the Pi5 bridge actually is for the real hardware (vs. this
   adsb.lol prototype which had decoded JSON handed to it).
 - DRONETAG production is currently UM's -- BSD has the code but no deploy
-  target. Confirm whether this SAM-side pipeline reuses anything from that
+  target. Confirm whether this pipeline reuses anything from that
   instance or is a clean separate build.
 - mission-planner dispatch tie-in (pull mission, push status) not started --
   separate from the traffic-display work above.
