@@ -27,6 +27,10 @@ Parameter meanings come from the ArduPilot mirror in `REVOLVER/heli/ArduPilot/`
   fetch `upstream` and rebase the BSD commits onto `upstream/master` (no merge
   commits), then `git push --force-with-lease origin master`; customizations should stay additive (new files,
   isolated overrides) to keep merges painless.
+- GitHub Actions are **disabled on the fork** (repo setting, 2026-09-26). The
+  upstream `.github/workflows/` files are left in place so upstream rebases
+  stay conflict-free, but they would otherwise start ~15 builds on every push
+  and several fail outside upstream's repo. Builds are manual and local only.
 - No git submodules in current QGC -- deps are CMake FetchContent/vcpkg.
 - `just configure` / `just build` / `just check` -- see `AGENTS.md` for full
   build workflow and coding rules before touching source.
