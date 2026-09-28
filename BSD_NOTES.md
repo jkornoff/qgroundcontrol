@@ -2,9 +2,16 @@
 
 Working notes on customizing QGC for Big Sky Dynamics (BSD) aircraft, the
 projects in the private `REVOLVER` repo. First target is the ArduPilot
-helicopter UAS (`REVOLVER/heli/`). Also covers custom UI, the DRONETAG
-Firelight traffic overlay, and a mission-planner dispatch tie-in. BSD work,
-not SAM work, and not for upstream. Updated 2026-09-26.
+helicopter UAS (`REVOLVER/heli/`). Also covers custom UI and the FIRELIGHT
+traffic feed. This fork is Josh's own work, not SAM's or UM's, and not for
+upstream. Updated 2026-09-28.
+
+**Role in the COP platform.** This fork is the flight-control station of Josh's
+DRONECOP common operating picture platform, and the only component allowed to
+command the aircraft. The platform architecture (hub, data flows, screens, phases)
+is in `~/dev/dronecop/docs/COP_ARCHITECTURE.md`. Until the Phase 7 custom build,
+QGC joins the platform through settings only: Custom Map URL (hub tiles), ADSB
+Server (hub SBS-1 feed), and MAVLink forwarding (read-only copy to the hub).
 
 ## Helicopter setup screens
 
@@ -108,10 +115,12 @@ rather than editing `src/` directly. This is how companies white-label QGC
 1. **MAVLink `ADSB_VEHICLE` messages** -- via `ADSBVehicleManager`
    (`src/Vehicle/Vehicle.cc`). Fed by an onboard receiver wired to the flight
    controller; traffic near *that* aircraft, from *its* sensor.
-2. **Network ADS-B server (SBS/BaseStation format)** -- Settings > General >
-   ADSB Server. Independent of any vehicle connection. QGC opens a TCP socket
-   to `host:port` and expects SBS-protocol text lines (same format
-   dump1090/readsb output). This is the path we prototyped.
+2. **Network ADS-B server (SBS/BaseStation format)** -- its own Settings page,
+   "ADSB Server" (`src/Settings/ADSBVehicleManager.SettingsGroup.json`: enable,
+   host, port; port defaults to 30003 and is editable). Independent of any
+   vehicle connection. QGC opens a TCP socket (`src/ADSB/ADSBTCPLink.cc`) to
+   `host:port` and expects SBS-protocol text lines (same format dump1090/readsb
+   output). This is the path we prototyped.
 
 RemoteID does NOT fit the SBS schema (no ICAO24/squawk/altitude in that sense
 -- it's operator ID, control station location, serial number). SBS path is
@@ -123,12 +132,14 @@ schema if we want it rendered on QGC's map.
 Working end-to-end as of today. Script: `adsb_sbs_bridge.py` (stdlib-only
 Python, polls `https://api.adsb.lol/v2/point/{lat}/{lon}/{radius_nm}`,
 reformats to SBS, serves on TCP :30003). Deployed on `pi5-b` (Tailscale
-100.69.214.58, SSH creds in Doppler as `PI5_B_SSH_USER`/`PI5_B_SSH_PASSWORD`/
-`PI5_B_HOST`).
+100.69.214.58, `ssh pi5-b` with key `~/.ssh/pi5_ed25519`). **The script lives
+only on the Pi and is not in any repo yet** -- copy it into DRONETAG
+(`native/services/sbs_out/`, COP plan Phase 2) before relying on it.
 
-QGC config: Settings > General > ADSB Server > Enable, host = Pi's Tailscale
-IP or `pi5-b.local`, port 30003 (fixed, no separate port setting needed
-beyond what's shown -- QGC's field matches dump1090's standard port).
+QGC config: Settings > ADSB Server > Enable, host = Pi's Tailscale IP or
+`pi5-b.local`, port 30003 (the default, matching dump1090's standard port).
+Only the Enable toggle is watched, so after changing host or port, toggle
+Enable off and on.
 
 ### Gotchas hit today
 
@@ -201,31 +212,30 @@ So: Firelight screen for the real picture, QGC's own map also lights up red
 on flagged threats as a belt-and-suspenders layer for whoever's only looking
 at the GCS.
 
-## Architecture (target, not yet built)
+## Architecture
 
-```
-DroneTag Scout --(Ethernet)--> Pi5 (field)
-                                  |-- parse/reformat locally
-                                  |-- SBS feed on LAN --------> QGC (ADS-B, native, incl. alert flag)
-                                  |-- RemoteID feed on LAN ---> Firelight display (custom, richer UI)
-                                  '-- spool/queue --(Starlink, async, store-and-forward)--> server (recording only)
-```
+Superseded by the COP platform plan (2026-09-28). The full design is in
+`~/dev/dronecop/docs/COP_ARCHITECTURE.md`. In short:
 
-Starlink kept OUT of the local-awareness critical path -- only used for
-non-time-critical recording upload. Local LAN (Scout + Pi5 + QGC laptop +
-Firelight display) is self-contained and doesn't depend on the home network
-or a satellite link.
+- A **hub server** (FIRELIGHT's `native/` stack on a mini PC) sits on the kit's
+  local network and needs no internet. It replaces the earlier "Pi5 bridge" idea.
+- The **Scout posts straight to the hub** with its own HTTP forwarder (JSON+ODID,
+  Remote ID and ADS-B, see `~/dev/DRONETAG/docs/deployment.md`). No custom RF
+  decoding is needed.
+- The hub sends **SBS-1 traffic to QGC** on TCP 30003 and sets `alert=1` on
+  tracks its alert engine flags.
+- QGC sends a **read-only MAVLink copy** to the hub with its own MAVLink
+  forwarding setting. Nothing but QGC ever commands the aircraft.
+- Starlink or cellular stays **out of the critical path**. It is used only for
+  internet ADS-B, weather, and uploading flight records afterward.
 
 ## Open questions / next steps
 
-- Does the physical DroneTag Scout expose a decoded API (REST/WebSocket/MQTT)
-  over its Ethernet link, or raw RF frames needing our own decode? Determines
-  how much work the Pi5 bridge actually is for the real hardware (vs. this
-  adsb.lol prototype which had decoded JSON handed to it).
-- DRONETAG production is currently UM's -- BSD has the code but no deploy
-  target. Confirm whether this pipeline reuses anything from that
-  instance or is a clean separate build.
-- mission-planner dispatch tie-in (pull mission, push status) not started --
-  separate from the traffic-display work above.
-- If/when the display quality or dispatch panel work starts: scaffold off
-  `custom-example/`, keep it additive so `upstream` merges stay clean.
+- Copy `adsb_sbs_bridge.py` off `pi5-b` into DRONETAG before anything else
+  (COP plan Phase 2).
+- Phase 7 custom build (scaffold off `custom-example/`, keep it additive):
+  loud traffic alert on the existing `alert` property, a distinct Remote ID
+  icon, a named "FAA Sectional (hub)" map entry, and the fix for the
+  velocity-vs-squawk comparison at `src/ADSB/ADSBVehicle.cc:81`.
+- Mission hand-off now comes from dronecop (boundary KML today, `.plan`
+  export later). The archived mission-planner app is no longer the source.
