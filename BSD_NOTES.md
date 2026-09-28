@@ -132,9 +132,10 @@ schema if we want it rendered on QGC's map.
 Working end-to-end as of today. Script: `adsb_sbs_bridge.py` (stdlib-only
 Python, polls `https://api.adsb.lol/v2/point/{lat}/{lon}/{radius_nm}`,
 reformats to SBS, serves on TCP :30003). Deployed on `pi5-b` (Tailscale
-100.69.214.58, `ssh pi5-b` with key `~/.ssh/pi5_ed25519`). **The script lives
-only on the Pi and is not in any repo yet** -- copy it into DRONETAG
-(`native/services/sbs_out/`, COP plan Phase 2) before relying on it.
+100.69.214.58, `ssh pi5-b` with key `~/.ssh/pi5_ed25519`). Since 2026-09-28 it
+lives in DRONETAG as `native/deploy/pi/sbs_bridge/adsb_sbs_bridge.py` and runs as
+the `sbs-bridge` service of the FIRELIGHT compose stack on `pi5-b`. It survives
+reboots now and polls every 10 s (it used to poll every 2 s, which drew HTTP 429s).
 
 QGC config: Settings > ADSB Server > Enable, host = Pi's Tailscale IP or
 `pi5-b.local`, port 30003 (the default, matching dump1090's standard port).
@@ -231,8 +232,6 @@ Superseded by the COP platform plan (2026-09-28). The full design is in
 
 ## Open questions / next steps
 
-- Copy `adsb_sbs_bridge.py` off `pi5-b` into DRONETAG before anything else
-  (COP plan Phase 2).
 - Phase 7 custom build (scaffold off `custom-example/`, keep it additive):
   loud traffic alert on the existing `alert` property, a distinct Remote ID
   icon, a named "FAA Sectional (hub)" map entry, and the fix for the
