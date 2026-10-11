@@ -4,7 +4,7 @@ Working notes on customizing QGC for Big Sky Dynamics (BSD) aircraft, the
 projects in the private `REVOLVER` repo. First target is the ArduPilot
 helicopter UAS (`REVOLVER/heli/`). Also covers custom UI and the FIRELIGHT
 traffic feed. This fork is Josh's own work, not SAM's or UM's, and not for
-upstream. Updated 2026-09-28.
+upstream. Updated 2026-10-11.
 
 **Role in the COP platform.** This fork is the flight-control station of Josh's
 DRONECOP common operating picture platform, and the only component allowed to
@@ -101,14 +101,41 @@ Bottom line: this is all one-time toolchain bootstrap cost. Once `.venv`,
 `.qt/`, and `build/` exist, a QML-only edit is `just build` (ccache-backed,
 QML doesn't need C++ recompilation) -- a couple minutes, not an afternoon.
 
-## Custom Build mechanism
+## Custom Build mechanism -- in use since 2026-10-11
 
-QGC's sanctioned way to re-skin/extend without forking core logic:
-`custom-example/` at repo root -- a self-contained sibling project (own
-`CustomOverrides.cmake`, `CustomPlugin.cc/.h`, QML overrides like
-`FlyViewCustomLayer.qml`, `CustomGuidedActionsController.qml`). Copy/adapt this
-rather than editing `src/` directly. This is how companies white-label QGC
-(ModalAI, Auterion, ag/survey vendors) without maintaining a hard fork.
+QGC's sanctioned way to re-skin/extend without forking core logic: a folder
+named `custom/` at the repo root. The root CMake detects it by name
+(`QGC_CUSTOM_DIR` in `cmake/CustomOptions.cmake`), compiles its
+`CustomPlugin` as the core plugin, and the plugin's URL interceptor serves any
+resource under `/Custom/qml/<path>` in place of upstream's `/qml/<path>`. This
+is how companies white-label QGC (ModalAI, Auterion, ag/survey vendors)
+without maintaining a hard fork. Dev guide:
+`docs/en/qgc-dev-guide/custom_build/`.
+
+**Rule for this fork: nothing BSD-specific goes in `src/`.** Every change is a
+file in `custom/` (see `custom/README.md`). The one earlier exception, the Map
+provider/type button in the Plan toolbar, was moved from
+`src/PlanView/PlanToolBarIndicators.qml` into
+`custom/src/PlanView/PlanToolBarIndicators.qml` as a resource override and
+`src/` was restored to upstream. The build is therefore an overlay again, which
+is what the "keep changes additive" rule in Repo setup meant all along.
+
+Why `custom/` is hand-built and not a copy of `custom-example/`: the example
+disables the ArduPilot plugin factory (`QGC_DISABLE_APM_PLUGIN_FACTORY`),
+forces PX4 and multirotor offline-editing defaults, hides setup pages behind
+advanced mode, and renames the app (which moves the settings location). All of
+that is wrong for an ArduPilot helicopter. `custom/` keeps the stock app name,
+both firmware factories, and the stock advanced UI; it adds only the
+interceptor and the overrides we actually want.
+
+Costs to remember:
+
+- Overrides are whole-file copies. After each upstream rebase, diff each file
+  in `custom/src/` against its `src/` counterpart and carry upstream changes
+  across. Today that is one QML file.
+- Adding or removing `custom/` changes compile definitions
+  (`QGC_CUSTOM_BUILD`) for the whole tree, so the first build afterwards is a
+  full rebuild. Delete `build/` before it, as the example README says.
 
 ## ADS-B / traffic display -- two native ingestion paths
 
@@ -232,9 +259,11 @@ Superseded by the COP platform plan (2026-09-28). The full design is in
 
 ## Open questions / next steps
 
-- Phase 7 custom build (scaffold off `custom-example/`, keep it additive):
-  loud traffic alert on the existing `alert` property, a distinct Remote ID
-  icon, a named "FAA Sectional (hub)" map entry, and the fix for the
-  velocity-vs-squawk comparison at `src/ADSB/ADSBVehicle.cc:81`.
+- Phase 7 additions to the existing `custom/` overlay: loud traffic alert on
+  the existing `alert` property (a `FlyViewCustomLayer.qml` override), a
+  distinct Remote ID icon, a named "FAA Sectional (hub)" map entry, and the
+  fix for the velocity-vs-squawk comparison at `src/ADSB/ADSBVehicle.cc:81`
+  (that one is a real bug, so it should go to upstream as a PR rather than
+  into `custom/`).
 - Mission hand-off now comes from dronecop (boundary KML today, `.plan`
   export later). The archived mission-planner app is no longer the source.

@@ -145,18 +145,6 @@ RowLayout {
     }
 
     QGCButton {
-        objectName: "planToolbar_mapSelectorButton"
-        text: qsTr("Map")
-
-        onClicked: {
-            let position = Qt.point(width, height / 2)
-            position = mapToItem(globals.parent, position)
-            var dropPanel = mapSelectorDropPanelComponent.createObject(mainWindow, { clickRect: Qt.rect(position.x, position.y, 0, 0) })
-            dropPanel.open()
-        }
-    }
-
-    QGCButton {
         objectName: "planToolbar_hamburgerButton"
         iconSource: "qrc:/qmlimages/Hamburger.svg"
 
@@ -166,53 +154,6 @@ RowLayout {
             position = mapToItem(globals.parent, position)
             var dropPanel = hamburgerDropPanelComponent.createObject(mainWindow, { clickRect: Qt.rect(position.x, position.y, 0, 0) })
             dropPanel.open()
-        }
-    }
-
-    Component {
-        id: mapSelectorDropPanelComponent
-
-        DropPanel {
-            id: mapSelectorDropPanel
-
-            sourceComponent: Component {
-                ColumnLayout {
-                    spacing: ScreenTools.defaultFontPixelHeight / 2
-
-                    property var _mapEngineManager:   QGroundControl.mapEngineManager
-                    property Fact _mapProviderFact:   QGroundControl.settingsManager.flightMapSettings.mapProvider
-                    property Fact _mapTypeFact:       QGroundControl.settingsManager.flightMapSettings.mapType
-
-                    LabelledComboBox {
-                        label: qsTr("Provider")
-                        model: _mapEngineManager.mapProviderList
-
-                        onActivated: (index) => {
-                            _mapProviderFact.rawValue = comboBox.textAt(index)
-                            _mapTypeFact.rawValue = _mapEngineManager.mapTypeList(comboBox.textAt(index))[0]
-                        }
-
-                        Component.onCompleted: {
-                            var index = comboBox.find(_mapProviderFact.rawValue)
-                            if (index < 0) index = 0
-                            comboBox.currentIndex = index
-                        }
-                    }
-
-                    LabelledComboBox {
-                        label: qsTr("Type")
-                        model: _mapEngineManager.mapTypeList(_mapProviderFact.rawValue)
-
-                        onActivated: (index) => { _mapTypeFact.rawValue = comboBox.textAt(index) }
-
-                        Component.onCompleted: {
-                            var index = comboBox.find(_mapTypeFact.rawValue)
-                            if (index < 0) index = 0
-                            comboBox.currentIndex = index
-                        }
-                    }
-                }
-            }
         }
     }
 
