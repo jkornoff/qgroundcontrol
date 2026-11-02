@@ -1,5 +1,7 @@
 # BSD Notes -- QGroundControl Customization
 
+> **Status note, 2026-11-01.** The helicopter autopilot is now **PX4** (Josh's decision), not ArduPilot, so the "ArduPilot helicopter first" wording below is out of date. QGC's helicopter setup page (`APMHeliComponent`) is ArduPilot-only and useful only as a reference for what a helicopter setup screen contains; for PX4 the matching setup is the actuator and `CA_HELI_*` parameter screens. Whether to extend this fork or build a new app is an open decision; see `~/dev/uas-stack/docs/README.md`. Until it is made, do not modify QGC source.
+
 Working notes on customizing QGC for Big Sky Dynamics (BSD) aircraft, the
 projects in the private `REVOLVER` repo. First target is the ArduPilot
 helicopter UAS (`REVOLVER/heli/`). Also covers custom UI and the FIRELIGHT
